@@ -1,36 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# 🚀 Real-Time Cross-Chain Gas Price Tracker with Wallet Simulation
 
-## Getting Started
+A full-stack **Next.js + Web3** dashboard that fetches real-time gas prices from **Ethereum**, **Polygon**, and **Arbitrum** using native RPCs (no third-party APIs), calculates live **USD transaction cost** using **Uniswap V3 pool logs**, and visualizes gas volatility using **candlestick charts**. It also includes a **wallet simulator** to compare cross-chain gas + transaction costs interactively.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 🧠 Objective
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Build a performant, developer-first dashboard that:
+- 🟢 **Fetches gas prices** from Ethereum, Polygon, and Arbitrum every 6 seconds.
+- 💸 **Calculates real-time transaction cost in USD** using live on-chain price data from Uniswap V3.
+- 📊 **Visualizes gas price trends** in an interactive 15-minute candlestick chart using `lightweight-charts`.
+- 🧪 **Simulates wallet interactions**, showing how much a transfer would cost on each chain.
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🚀 Features
 
-## Learn More
+### ✅ Real-Time Gas Tracking
+- Connects directly to Ethereum, Polygon, and Arbitrum RPCs via WebSocket.
+- Fetches and updates gas data every 6 seconds per chain.
+- Tracks both **base fee** and **priority fee** for each chain.
 
-To learn more about Next.js, take a look at the following resources:
+### ✅ Wallet Simulation
+- Accepts user input for transaction value in ETH/MATIC/ETH.
+- Simulates the **USD cost of gas + transaction** for each chain.
+- Live ETH/USD prices are computed from Uniswap V3's ETH/USDC pool using on-chain logs.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### ✅ Gas Price Visualization
+- Displays 15-minute candlestick charts for gas price volatility.
+- Uses `lightweight-charts` library for interactive chart rendering.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## 🛠️ Tech Stack
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+| Category      | Tech                                    |
+|---------------|------------------------------------------|
+| Frontend      | React.js (with Next.js)                  |
+| Blockchain    | Ethers.js + Web3                         |
+| State Mgmt    | Zustand                                  |
+| Charts        | Lightweight-Charts                       |
+| Chains Used   | Ethereum Mainnet, Polygon, Arbitrum      |
+| Pricing Oracle| Uniswap V3 ETH/USDC Pool (On-Chain Logs) |
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+## 🧮 Key Functionalities
+
+### ✅ Real-Time Gas Engine
+- Uses native WebSocket connections to Ethereum/Polygon/Arbitrum RPCs.
+- Listens for new blocks and extracts:
+  - `baseFeePerGas`
+  - `maxPriorityFeePerGas`
+- Updates Zustand store every **6 seconds** per chain.
+
+### ✅ On-Chain ETH/USD Pricing
+- Directly reads `Swap` events from [Uniswap V3 ETH/USDC Pool](https://etherscan.io/address/0x8ad599c3A0ff1De082011EFDDc58f1908eb6e6D8).
+- Calculates ETH/USD using:
+  ```ts
+  price = (sqrtPriceX96 ** 2 * 10^12) / 2 ** 192
