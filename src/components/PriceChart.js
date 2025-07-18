@@ -1,4 +1,4 @@
-'use client'; // Ensure client component in Next.js 13+
+'use client';
 
 import { useEffect, useRef, useState } from 'react';
 import { useGasStore } from '../store/gasStore';
@@ -8,36 +8,50 @@ export default function PriceChart({ chain = 'ethereum' }) {
   const chartContainerRef = useRef(null);
   const chartRef = useRef(null);
   const candleSeriesRef = useRef(null);
-
-  const [isClient, setIsClient] = useState(false);
-  const [chartLib, setChartLib] = useState(null);
+  const [isChartLoaded, setIsChartLoaded] = useState(false);
 
   const history = useGasStore((state) => state.chains[chain]?.history || []);
 
-  // Dynamically import chart lib only on client
   useEffect(() => {
-    setIsClient(true);
-    import('lightweight-charts').then((mod) => {
-      setChartLib({
-        createChart: mod.createChart,
-        CrosshairMode: mod.CrosshairMode,
-      });
-    });
+    let mounted = true;
+    let chartModule;
+
+    const loadChart = async () => {
+      try {
+        // Try standard import first
+        chartModule = await import('lightweight-charts');
+        
+        // If standard import fails, try alternative path
+        if (!chartModule) {
+          chartModule = await import('lightweight-charts/dist/lightweight-charts.esm.js');
+        }
+
+        if (mounted && chartModule) {
+          setIsChartLoaded(true);
+          initializeChart(chartModule);
+        }
+      } catch (error) {
+        console.error('Failed to load Lightweight Charts:', error);
+      }
+    };
+
+    loadChart();
+
+    return () => {
+      mounted = false;
+      if (chartRef.current) {
+        chartRef.current.remove();
+        chartRef.current = null;
+        candleSeriesRef.current = null;
+      }
+    };
   }, []);
 
-  useEffect(() => {
-    if (
-      !isClient ||
-      !chartContainerRef.current ||
-      !chartLib?.createChart ||
-      !chartLib?.CrosshairMode
-    )
-      return;
+  const initializeChart = (chartModule) => {
+    if (!chartContainerRef.current || !chartModule) return;
 
-    // Create the chart
-    const chart = chartLib.createChart(chartContainerRef.current, {
-      width: chartContainerRef.current.clientWidth,
-      height: 400,
+    const chart = chartModule.createChart(chartContainerRef.current, {
+      autoSize: true,
       layout: {
         backgroundColor: '#1e1e2e',
         textColor: '#cdd6f4',
@@ -47,7 +61,7 @@ export default function PriceChart({ chain = 'ethereum' }) {
         horzLines: { color: '#313244' },
       },
       crosshair: {
-        mode: chartLib.CrosshairMode.Normal,
+        mode: chartModule.CrosshairMode.Normal,
       },
       rightPriceScale: {
         borderColor: '#313244',
@@ -58,37 +72,29 @@ export default function PriceChart({ chain = 'ethereum' }) {
     });
 
     chartRef.current = chart;
+    candleSeriesRef.current = chart.addCandlestickSeries({
+      upColor: '#a6e3a1',
+      downColor: '#f38ba8',
+      borderDownColor: '#f38ba8',
+      borderUpColor: '#a6e3a1',
+      wickDownColor: '#f38ba8',
+      wickUpColor: '#a6e3a1',
+    });
 
-    // Ensure method exists
-    if (typeof chart.addCandlestickSeries === 'function') {
-      candleSeriesRef.current = chart.addCandlestickSeries({
-        upColor: '#a6e3a1',
-        downColor: '#f38ba8',
-        borderDownColor: '#f38ba8',
-        borderUpColor: '#a6e3a1',
-        wickDownColor: '#f38ba8',
-        wickUpColor: '#a6e3a1',
-      });
-    }
-
-    const handleResize = () => {
-      chart.applyOptions({
+    const resizeObserver = new ResizeObserver(() => {
+      chart.applyOptions({ 
         width: chartContainerRef.current.clientWidth,
+        height: 400,
       });
-    };
+    });
 
-    window.addEventListener('resize', handleResize);
+    resizeObserver.observe(chartContainerRef.current);
 
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      chart.remove();
-      chartRef.current = null;
-      candleSeriesRef.current = null;
-    };
-  }, [isClient, chartLib]);
+    return () => resizeObserver.disconnect();
+  };
 
   useEffect(() => {
-    if (!isClient || !candleSeriesRef.current || !history.length) return;
+    if (!isChartLoaded || !candleSeriesRef.current || !history.length) return;
 
     const candles = aggregateToCandles(history);
     candleSeriesRef.current.setData(candles);
@@ -96,7 +102,7 @@ export default function PriceChart({ chain = 'ethereum' }) {
     if (chartRef.current && candles.length) {
       chartRef.current.timeScale().fitContent();
     }
-  }, [history, isClient]);
+  }, [history, isChartLoaded]);
 
   return (
     <div
@@ -104,8 +110,25 @@ export default function PriceChart({ chain = 'ethereum' }) {
       style={{
         height: '400px',
         width: '100%',
+        position: 'relative',
       }}
-      className="chart-container"
-    />
+    >
+      {!isChartLoaded && (
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#cdd6f4',
+          backgroundColor: '#1e1e2e',
+        }}>
+          Loading chart...
+        </div>
+      )}
+    </div>
   );
 }
